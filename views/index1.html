@@ -52,7 +52,7 @@
             to: destination,
             promotion: "q" // NOTE: always promote to a queen for simplicity
           });
-          if (move === null) {
+          if (move === null || game.move() === "b") {
             sendBroadcast("Move voted on was invalid");
           } else {
             board1.position(game.fen());
