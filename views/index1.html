@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <title>Twitch Interactive Chess</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+    />
+  </head>
+  <body>
+    <!--- Load In These ------------------------------------------------------>
+    <script src="jquery.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
+    <script src="https://unpkg.com/socket.io-client@3.1.3/dist/socket.io.min.js"></script>
+
+    <!--- Begin HTML ------------------------------------------------------>
+
+    <label>Status:</label>
+    <div id="status"></div>
+    <div id="board1" style="width: 400px"></div>
+
+    <!--- End HTML -------------------------------------------------------->
+
+    <!--- Begin JS -------------------------------------------------------->
+
+    <script>
+      var board = null;
+      var game = new Chess();
+      var $status = $("#status");
+      var $fen = $("#fen");
+      var $pgn = $("#pgn");
+      var globalStatus = "";
+      //var lastmove = "";
+      const socket = io("https://interactive-twtch-chess-bot.glitch.me");
+      //const socket = io();
+      socket.on("connection");
+      socket.on("message", data => {
+        console.log(data);
+        evaluateMove(data);
+      });
+      
+      function evaluateMove(movein) {
+        let source = movein.substr(0, 2);
+          let destination = movein.substr(3, 2);
+
+          var move = game.move({
+            from: source,
+            to: destination,
+            promotion: "q" // NOTE: always promote to a queen for simplicity
+          });
+          if (move === null) {
+            sendBroadcast("Move voted on was invalid");
+          } else {
+            board1.position(game.fen());
+          }
+      }
+
+      //the message will be sent to the twitch channel
+      function sendBroadcast(messagein) {
+        var data = { message: messagein };
+        const broadcastOptions = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          //body: JSON.stringify(message)
+          body: JSON.stringify(data)
+        };
+        fetch("/broadcast", broadcastOptions);
+      }
+
+      function onChange(oldPos, newPos) {
+        updateStatus();
+        sendBroadcast(globalStatus);
+      }
+
+      function pieceTheme(piece) {
+        switch (piece) {
+          case "bB":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbB.png?v=1620101132738";
+            break;
+          case "bK":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbK.png?v=1620101132739";
+            break;
+          case "bN":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbN.png?v=1620101132739";
+            break;
+          case "bP":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbP.png?v=1620101132739";
+            break;
+          case "bQ":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbQ.png?v=1620101132739";
+            break;
+          case "bR":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FbR.png?v=1620101132739";
+            break;
+          case "wB":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwB.png?v=1620101132739";
+            break;
+          case "wK":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwK.png?v=1620101132739";
+            break;
+          case "wN":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwN.png?v=1620101132942";
+            break;
+          case "wP":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwP.png?v=1620101133149";
+            break;
+          case "wQ":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwQ.png?v=1620101133122";
+            break;
+          case "wR":
+            return "https://cdn.glitch.com/f5afb55f-0047-4aa6-8137-f8a94a80450a%2FwR.png?v=1620101133076";
+            break;
+        }
+      }
+
+      function onDragStart(source, piece, position, orientation) {
+        // do not pick up pieces if the game is over
+        if (game.game_over()) return false;
+
+        // normally, to only pick up pieces for the side to move
+        // execpt in this version, you can only play the black pieces via Twitch
+        if (
+          (game.turn() === "w" && piece.search(/^b/) !== -1) ||
+          game.turn() === "b"
+        ) {
+          return false;
+        }
+      }
+
+      function onDrop(source, target) {
+        // see if the move is legal
+        var move = game.move({
+          from: source,
+          to: target,
+          promotion: "q" // NOTE: always promote to a queen for example simplicity
+        });
+
+        // illegal move
+        if (move === null) return "snapback";
+
+        updateStatus();
+      }
+
+      // update the board position after the piece snap
+      // for castling, en passant, pawn promotion
+      function onSnapEnd() {
+        board.position(game.fen());
+      }
+
+      function updateStatus() {
+        var status = "";
+
+        var moveColor = "White";
+        if (game.turn() === "b") {
+          moveColor = "Black";
+        }
+
+        // checkmate?
+        if (game.in_checkmate()) {
+          status = "Game over, " + moveColor + " is in checkmate.";
+        }
+
+        // draw?
+        else if (game.in_draw()) {
+          status = "Game over, drawn position";
+        }
+
+        // game still on
+        else {
+          status = moveColor + " to move";
+
+          // check?
+          if (game.in_check()) {
+            status += ", " + moveColor + " is in check";
+          }
+        }
+
+        $status.html(status);
+        globalStatus = status;
+        $fen.html(game.fen());
+        $pgn.html(game.pgn());
+      }
+
+      var config = {
+        draggable: true,
+        position: "start",
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onChange: onChange,
+        //onSnapEnd: onSnapEnd,
+        pieceTheme: pieceTheme,
+        moveSpeed: "fast",
+        snapbackSpeed: 500,
+        snapSpeed: 100
+      };
+
+      var board1 = Chessboard("board1", config);
+
+      updateStatus();
+    </script>
+    <!--- End JS -------------------------------------------------------->
+  </body>
+</html>
