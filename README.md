@@ -1,7 +1,7 @@
 # Twitch Chess Chatbot
 
 This runs with my personal Twitch channel and my personal Twitch bot. Change it in the .env setting to work with yours. 
-You might be able to try it yourself by visiting this [webpage](https://interactive-twtch-chess-bot.glitch.me) and my [Twitch channel](twitch.tv/snowing_in_july)
+You might be able to try it yourself by visiting this [webpage](https://interactive-twtch-chess-bot.glitch.me) and my [Twitch channel](https://twitch.tv/snowing_in_july).
 
 ## Chatbot Overview
 
